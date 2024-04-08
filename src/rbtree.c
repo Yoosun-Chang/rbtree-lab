@@ -1,14 +1,12 @@
 #include "rbtree.h"
-#include <stdio.h>
 #include <stdlib.h>
 
-void rbtree_insert_fixup(rbtree *t, node_t *z);
-
-void left_rotate(rbtree *tree, node_t *x);
-
-void right_rotate(rbtree *tree, node_t *x);
-
+void rbtree_insert_fixup(rbtree *t,node_t *z);
+void rbtree_transplant(rbtree *t, node_t *u, node_t *v);
+node_t *rbtree_successor(rbtree *t, node_t *x);
 node_t *rbtree_find(const rbtree *t, const key_t key);
+void rbtree_erase_fixup(rbtree *t, node_t *x);
+
 
 rbtree *new_rbtree(void) {
   // rbtree 구조체에 대한 동적 할당
@@ -33,15 +31,20 @@ rbtree *new_rbtree(void) {
 void left_rotate(rbtree *t, node_t *x) {
   node_t *y = x->right;
   x->right = y->left;
+
   if (y->left != t->nil) {
     y->left->parent = x;
   }
+
   y->parent = x->parent;
+
   if(x->parent == t->nil)
     t->root = y;
+
   else if (x == x->parent->left)
     x->parent->left = y;
-  else x->parent->left = y;
+  else x->parent->right = y;
+
   y->left = x;
   x->parent = y;
 }
@@ -104,7 +107,7 @@ node_t *rbtree_insert(rbtree *t, const key_t key) {
     parent->right = addnode;
   }
   rbtree_insert_fixup(t,addnode);
-  return t->root; // 추가된 노드 반환
+  return addnode; // 추가된 노드 반환
 }
 
 void rbtree_insert_fixup(rbtree *t,node_t *z)
@@ -161,18 +164,19 @@ void rbtree_insert_fixup(rbtree *t,node_t *z)
 }
 
 node_t *rbtree_find(const rbtree *t, const key_t key) {
-  node_t* p = t->root;
+  node_t *p = t->root;
 
-  while(p != NULL)
+  while(p != t->nil)
   {
     if(p->key == key)
       return p;
-    else if (p->key > key)
+    else if(p->key > key)
       p = p->left;
-    else 
-      p = p->right;
+    else
+      p = p-> right;
   }
-  return NULL; // 찾고자 하는 키 값이 존재하지 않을 경우 NULL 반환
+
+  return NULL;
 }
 
 
@@ -186,13 +190,120 @@ node_t *rbtree_max(const rbtree *t) {
   return t->root;
 }
 
+  // 부모 교체
 void rbtree_transplant(rbtree *t, node_t *u, node_t *v) {
-  
+  if (u->parent == t->nil) {
+    t->root = v;
+  }
+  else if (u == u->parent->left) {
+    u->parent->left = v;
+  }
+  else u->parent->right = v;
+  v->parent = u->parent;
 }
 
-int rbtree_erase(rbtree *t, node_t *p) {
-  // TODO: implement erase
+// 키 값을 기준으로 다음 노드를 반환하는 함수
+node_t *rbtree_successor(rbtree *t, node_t *x){
+    while(x->left != t->nil) {
+      x = x->left;
+    }
+    return x;
+}
+
+int rbtree_erase(rbtree *t, node_t *z) {
+  node_t* y = z;
+  color_t y_original_color = y->color;
+  node_t *x;
+  
+  if (z->left == t->nil) {
+    x = z->right;
+    rbtree_transplant(t, z, z->right);
+
+  } else if (z->right == t->nil) {
+    x = z->left;
+    rbtree_transplant(t, z, z->left);
+
+  } else {
+    y = rbtree_successor(t, z->right);
+    y_original_color = y->color;
+    x = y->right;
+    
+    if (y->parent == z)
+      x->parent = y;
+    else {
+      rbtree_transplant(t, y, y->right);
+      y->right = z->right;
+      y->right->parent = y;
+    }
+    
+    rbtree_transplant(t, z, y);
+    y->left = z->left;
+    y->left->parent = y;
+    y->color = z->color;
+  }
+  free(z);
+
+  if (y_original_color == RBTREE_BLACK){
+    rbtree_erase_fixup(t, x);
+  }
   return 0;
+}
+
+
+void rbtree_erase_fixup(rbtree *t, node_t *x){
+  while (x != t->root && x->color==RBTREE_BLACK)   
+  {
+    if(x == x->parent->left){                       // 왼쪽에 붙어 있을때 
+      node_t *w = x->parent->right;                 // 임시 노드에 형제 노드 할당
+      if(w->color == RBTREE_RED){                   // 형제가 red일때
+        w->color = RBTREE_BLACK;
+        x->parent->color = RBTREE_RED;
+        left_rotate(t, x->parent);
+        w = x->parent->right;
+      }                                             // 형제 왼쪽 자식이 블랙이면서 오른쪽 자식도 블랙일때
+      if(w->left->color == RBTREE_BLACK && w->right->color == RBTREE_BLACK){
+        w->color = RBTREE_RED;
+        x = x->parent;
+      }else{                                        // 형제 자식 중 하나라도 레드면
+        if (w->right->color == RBTREE_BLACK){
+          w->left->color = RBTREE_BLACK;
+          w->color = RBTREE_RED;
+          right_rotate(t, w);
+          w = x->parent->right;
+        }
+        w->color = x->parent->color;
+        x->parent->color = RBTREE_BLACK;
+        w->right->color = RBTREE_BLACK;
+        left_rotate(t, x->parent);
+        x = t->root;
+      }
+    }else{                                          // 오른쪽에 붙어 있을때 
+      node_t *w = x->parent->left;
+      if(w->color == RBTREE_RED){
+        w->color = RBTREE_BLACK;
+        x->parent->color = RBTREE_RED;
+        right_rotate(t, x->parent);
+        w = x->parent->left;
+      }
+      if(w->left->color == RBTREE_BLACK && w->right->color == RBTREE_BLACK){
+        w->color = RBTREE_RED;
+        x = x->parent;
+      }else{ 
+        if (w->left->color == RBTREE_BLACK){
+          w->right->color = RBTREE_BLACK;
+          w->color = RBTREE_RED;
+          left_rotate(t, w);
+          w = x->parent->left;
+        }
+        w->color = x->parent->color;
+        x->parent->color = RBTREE_BLACK;
+        w->left->color = RBTREE_BLACK;
+        right_rotate(t, x->parent);
+        x = t->root;
+      }      
+    }
+  }
+  x->color = RBTREE_BLACK;
 }
 
 int rbtree_to_array(const rbtree *t, key_t *arr, const size_t n) {
