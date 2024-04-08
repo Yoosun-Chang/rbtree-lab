@@ -2,13 +2,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-void rbtree_insert_fixup(rbtree *t, node_t *z);
-
-void left_rotate(rbtree *tree, node_t *x);
-
-void right_rotate(rbtree *tree, node_t *x);
-
-node_t *rbtree_find(const rbtree *t, const key_t key);
+void rbtree_insert_fixup(rbtree *t,node_t *z);
+int rbtree_delete_fixup(const rbtree *t, node_t* x);
 
 rbtree *new_rbtree(void) {
   // rbtree 구조체에 대한 동적 할당
@@ -163,7 +158,7 @@ void rbtree_insert_fixup(rbtree *t,node_t *z)
 node_t *rbtree_find(const rbtree *t, const key_t key) {
   node_t* p = t->root;
 
-  while(p != NULL)
+  while(p != t->nil)
   {
     if(p->key == key)
       return p;
@@ -198,8 +193,65 @@ void rbtree_transplant(rbtree *t, node_t *u, node_t *v) {
   v->parent = u->parent;
 }
 
-int rbtree_erase(rbtree *t, node_t *p) {
-  // TODO: implement erase
+// 키 값을 기준으로 다음 노드를 반환하는 함수
+node_t *tree_minimum(const rbtree *t, node_t *p)
+{
+  node_t *current = p->right;
+  if (current == t->nil) // 오른쪽 자식이 없으면
+  {
+    current = p;
+    while (1)
+    {
+      if (current->parent->right == current) // current가 오른쪽 자식인 경우
+        current = current->parent;           // 부모 노드로 이동 후 이어서 탐색
+      else
+        return current->parent; // current가 왼쪽 자식인 경우 부모 리턴
+    }
+  }
+  while (current->left != t->nil) // 왼쪽 자식이 있으면
+    current = current->left;      // 왼쪽 끝으로 이동
+  return current;
+}
+
+int rbtree_erase(rbtree *t, node_t *z) {
+  node_t* y = z;
+  color_t y_original_color = y->color;
+  
+  if (z->left == t->nil) {
+    node_t* x = z->right;
+    rbtree_transplant(t, z, z->right);
+    free(z);
+  } else if (z->right == t->nil) {
+    node_t* x = z->left;
+    rbtree_transplant(t, z, z->left);
+    free(z);
+  } else {
+    y = tree_minimum(t, z->right);
+    color_t y_original_color = y->color;
+    node_t* x = y->right;
+    
+    if (y->parent == z)
+      x->parent = y;
+    else {
+      rbtree_transplant(t, y, y->right);
+      y->right = z->right;
+      y->right->parent = y;
+    }
+    
+    rbtree_transplant(t, z, y);
+    y->left = z->left;
+    y->left->parent = y;
+    y->color = z->color;
+    free(z);
+  }
+  
+  if (y_original_color == RBTREE_BLACK)
+    rbtree_delete_fixup(t, z);
+    
+  return 0; // 함수가 성공적으로 실행되었음을 나타내는 값을 반환
+}
+
+int rbtree_delete_fixup(const rbtree *t, node_t* x) {
   return 0;
 }
 
