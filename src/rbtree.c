@@ -6,6 +6,7 @@ void rbtree_transplant(rbtree *t, node_t *u, node_t *v);
 node_t *rbtree_successor(rbtree *t, node_t *x);
 node_t *rbtree_find(const rbtree *t, const key_t key);
 void rbtree_erase_fixup(rbtree *t, node_t *x);
+void delete_node(rbtree *t, node_t *node);
 
 
 rbtree *new_rbtree(void) {
@@ -68,8 +69,19 @@ void right_rotate(rbtree *t, node_t *x) {
 
 
 void delete_rbtree(rbtree *t) {
-  // TODO: reclaim the tree nodes's memory
+  node_t *node = t->root;
+  if(node != t->nil)
+    delete_node(t,node);
+  free(t->nil);
   free(t);
+}
+
+void delete_node(rbtree *t, node_t *node){
+  if(node->left != t->nil)
+    delete_node(t, node->left);
+  if(node->right != t->nil)
+    delete_node(t, node->right);
+  free(node);
 }
 
 node_t *rbtree_insert(rbtree *t, const key_t key) {
@@ -181,13 +193,19 @@ node_t *rbtree_find(const rbtree *t, const key_t key) {
 
 
 node_t *rbtree_min(const rbtree *t) {
-  // TODO: implement find
-  return t->root;
+  node_t* x = t->root;
+  while(x->left != t->nil) {
+    x = x->left;
+  }
+  return x;
 }
 
 node_t *rbtree_max(const rbtree *t) {
-  // TODO: implement find
-  return t->root;
+    node_t* x = t->root;
+  while(x->right != t->nil) {
+    x = x->right;
+  }
+  return x;
 }
 
   // 부모 교체
@@ -277,7 +295,7 @@ void rbtree_erase_fixup(rbtree *t, node_t *x){
         left_rotate(t, x->parent);
         x = t->root;
       }
-    }else{                                          // 오른쪽에 붙어 있을때 
+    }else{                                          
       node_t *w = x->parent->left;
       if(w->color == RBTREE_RED){
         w->color = RBTREE_BLACK;
@@ -306,7 +324,19 @@ void rbtree_erase_fixup(rbtree *t, node_t *x){
   x->color = RBTREE_BLACK;
 }
 
+int inorder(node_t *x, const rbtree *t, key_t *arr, int i){
+  if(x == t->nil)
+    return i;
+  i = inorder(x->left ,t,arr,i);
+  arr[i++] = x->key;
+  // i++;
+  i = inorder(x->right,t,arr,i);
+  return i;
+}
+
 int rbtree_to_array(const rbtree *t, key_t *arr, const size_t n) {
-  // TODO: implement to_array
+  if (t->root != t->nil) {
+    inorder(t->root, t, arr,0);
+  }
   return 0;
 }
