@@ -67,7 +67,7 @@ void right_rotate(rbtree *t, node_t *x) {
   x->parent = y;
 }
 
-
+// 순회하면서 각 노드의 메모리 반환
 void delete_rbtree(rbtree *t) {
   node_t *node = t->root;
   if(node != t->nil)
@@ -76,6 +76,7 @@ void delete_rbtree(rbtree *t) {
   free(t);
 }
 
+// 노드의 메모리 반환
 void delete_node(rbtree *t, node_t *node){
   if(node->left != t->nil)
     delete_node(t, node->left);
@@ -92,7 +93,6 @@ node_t *rbtree_insert(rbtree *t, const key_t key) {
   addnode->left = t->nil;
   addnode->right = t->nil;
   addnode->color = RBTREE_RED;
-
 
   node_t *cur = t->root;
   node_t *parent = t->nil;
